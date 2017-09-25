@@ -1,41 +1,46 @@
-'use strict';
+const Estimate = require('./estimate');
 
-const Estimate = require('./estimate')
-
-var Action = function Constructor(token) {
+class Action {
+  constructor(token, estimate) {
     this.token = token;
-};
-
-Action.prototype.execute = (body) => new Promise((resolve, reject) => {
-  if (slackToken !== body.token) {
-		return resolve({
-			text: '',
-			attachments: [createErrorAttachment(new Error('Invalid token'))]
-		});
-  }
-  
-  let action = body.actions[0].name;
-
-  switch (action) {
-    case 'cancel':
-      response = {
-        text: 'Keep on estimating!'
-      }
-      break;
-    case 'confirm':
-      Estimate.revealEstimates();
-      response = {
-        text: 'Estimation closed'
-      }
-      break;
-    default:
-      response = {
-        text: 'Action invalid'
-      }
+    this.estimate = estimate;
   }
 
-  resolve(response);
+  execute(body) {
+    return new Promise((resolve, reject) => {
+      if (body.token !== this.token) {
+        resolve({
+          text: 'This token invalid bruh'
+        });
+      }
 
-});
+      let action = body.actions[0].name;
+      let response = {};
+
+      switch (action) {
+        case 'cancel':
+          response = {
+            text: 'Keep on estimating!'
+          }
+          break;
+        case 'confirm':
+          this.estimate.revealEstimates(body);
+          response = {
+            text: 'Estimation closed'
+          }
+          break;
+        default:
+          response = {
+            text: 'Action invalid'
+          }
+      }
+
+      console.log("action response", response);
+
+      resolve(response);
+
+    });
+  }
+}
 
 module.exports = Action;

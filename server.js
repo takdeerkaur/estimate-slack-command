@@ -1,5 +1,3 @@
-'use strict';
-
 const Express = require('express');
 const bodyParser = require('body-parser');
 const Estimate = require('./src/estimate');
@@ -22,14 +20,13 @@ if (!slackToken) {
 
 const port = PORT || 80;
 
-let action = new Action(slackToken);
 let estimate = new Estimate(slackToken);
-console.log("what is estimate", estimate);
+let action = new Action(slackToken, estimate);
 
 app.post('/', (req, res) => {
 	if (req.body) {
 		if (req.body.payload) {
-			action.execute(req.body.payload)
+			action.execute(JSON.parse(req.body.payload))
 				.then((result) => {
 					console.log("this is the action", result);
 					return res.json(result);
