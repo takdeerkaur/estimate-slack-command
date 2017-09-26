@@ -1,9 +1,6 @@
 class StoryPoints {
   constructor() {
-    this.storyPoints = [{
-        emoji: 'zero',
-        value: 0
-      },
+    this.storyPoints = [
       {
         emoji: 'one',
         value: 1

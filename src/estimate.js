@@ -9,28 +9,8 @@ class Estimate {
 		this.estimates = [];
 		this.estimationInProgress = false;
 		this.currentEstimation = {};
+		this.users = [];
 	}
-
-	// Estimate.prototype.createErrorAttachment = (error) => ({
-	// 	color: 'danger',
-	// 	text: `*Error*:\n${error.message}`,
-	// 	mrkdwn_in: ['text'],
-	// 	response_type: 'ephemeral'
-	// });
-
-	// Estimate.prototype.createSuccessAttachment = (message) => ({
-	// 	color: 'good',
-	// 	text: `${message}`,
-	// 	mrkdwn_in: ['text']
-	// });
-
-	// Estimate.prototype.createAttachment = (result) => {
-	// 	if (result.constructor === Error) {
-	// 		return createErrorAttachment(result);
-	// 	}
-
-	// 	return createSuccessAttachment(result);
-	// };
 
 	createBaseEstimate(ticket) {
 		let baseEstimate = {};
@@ -58,17 +38,19 @@ class Estimate {
 
 	revealEstimates(body) {
 		let self = this;
-		console.log("unsorted", this.estimates);
+		
 		self.estimates.sort(function (a, b) {
 			return a.value > b.value;
 		});
-		console.log("sorted", this.estimates);
+
 
 		self.slackHelper.postMessage(body.channel, `Revealing estimates for ${this.currentEstimation.ticket}!`)
 			.then(function (newMessage) {
 				self.estimates.forEach(function (value) {
-					console.log("this value", value);
-					self.slackHelper.addReaction(value, newMessage);
+					let user = self.users.find(function(x) {
+						return x.user_id === value.user;
+					});
+					self.slackHelper.addReaction(user.token, value, newMessage);
 				});
 
 				self.estimates = [];
@@ -82,7 +64,7 @@ class Estimate {
 
 		if (this.estimationInProgress) {
 			let alreadyVoted = this.estimates.findIndex(function(estimate) {
-				return estimate.user === user_id;
+				return estimate.user_id === user_id;
 			});
 
 			if(alreadyVoted > -1) {
@@ -93,11 +75,12 @@ class Estimate {
 				this.estimates.push({
 					emoji: point.emoji,
 					user: user_id,
+					username: user_name,
 					value: point.value
 				});
 
 				this.currentEstimation.count = this.currentEstimation.count ? this.currentEstimation.count + 1 : 1;
-				this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${this.currentEstimation.count} total votes.`);
+				this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${this.currentEstimation.count} total votes.`, user_name);
 			}
 
 			addedEstimate.text = `You voted :${point.emoji}:`;
@@ -172,7 +155,6 @@ class Estimate {
 			}
 			else if(this.estimationInProgress) {
 				if(validPoint) {
-					console.log("this is body of valid point", body);
 					resolve(this.addEstimate(validPoint, body.user_id, body.user_name, body.channel_id));
 				}
 				else if(message === 'close') {
@@ -180,7 +162,7 @@ class Estimate {
 				}
 				else {
 					let invalidEstimate = {};
-					invalidEstimate.text = `${message} is not a valid story point. Please enter a valid fibonnaci number between 0 - 13`;
+					invalidEstimate.text = `${message} is not a valid story point. Please enter a valid fibonnaci number between 1 - 13`;
 					invalidEstimate.response_type = 'ephemeral';
 					resolve(invalidEstimate);
 				}

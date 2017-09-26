@@ -6,36 +6,57 @@ class SlackHelper {
     this.token = token;
   }
 
-  addReaction(value, message) {
-    fetch('https://slack.com/api/reactions.add', {
-      method: "POST",
-      body: qs.stringify({
-        token: 'xoxp-8003773904-8003930263-228139192273-fda00f27d104a7ef4e8fc5a4d4125c3f',
-        name: value.emoji,
-        channel: message.channel,
-        timestamp: message.ts
-      }),
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      }
-    })
-    .then((resp) => resp.json())
-    .then(function (data) {
-        return data;
-    }, function (error) {
-        return error;
+  authorize(code) {
+    return new Promise((resolve, reject) => {
+      fetch('https://slack.com/api/oauth.access?code=' +
+          code +
+          '&client_id=' + process.env.CLIENT_ID +
+          '&client_secret=' + process.env.CLIENT_SECRET, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded"
+            }
+          })
+        .then((resp) => resp.json())
+        .then(function (data) {
+          resolve(data);
+        }, function (error) {
+          resolve(error);
+        });
     });
   }
 
-  postMessage(channel, text) {
+  addReaction(token, value, message) {
+    fetch('https://slack.com/api/reactions.add', {
+        method: "POST",
+        body: qs.stringify({
+          token: token,
+          name: value.emoji,
+          channel: message.channel,
+          timestamp: message.ts
+        }),
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        }
+      })
+      .then((resp) => resp.json())
+      .then(function (data) {
+        return data;
+      }, function (error) {
+        return error;
+      });
+  }
+
+  postMessage(channel, text, username, as_user = false) {
     return new Promise((resolve, reject) => {
       fetch('https://slack.com/api/chat.postMessage', {
           method: "POST",
           body: qs.stringify({
-            token: 'xoxp-8003773904-8003930263-228139192273-fda00f27d104a7ef4e8fc5a4d4125c3f',
+            token: process.env.OAUTH_ACCESS_TOKEN,
             channel: channel.id ? channel.id : channel,
             text: text,
-            as_user: false
+            as_user: as_user,
+            username: username
           }),
           headers: {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -43,12 +64,10 @@ class SlackHelper {
         })
         .then((resp) => resp.json())
         .then(function (data) {
-          console.log("this data", data);
           resolve(data);
         })
         .catch(function (error) {
-          console.log(error);
-          resolve("Major flop");
+          resolve("Major flop", error);
         });
     });
   }

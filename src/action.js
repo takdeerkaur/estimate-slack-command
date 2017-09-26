@@ -6,7 +6,7 @@ class Action {
     this.estimate = estimate;
   }
 
-  execute(body) {
+  close(body) {
     return new Promise((resolve, reject) => {
       if (body.token !== this.token) {
         resolve({
@@ -34,8 +34,6 @@ class Action {
             text: 'Action invalid'
           }
       }
-
-      console.log("action response", response);
 
       resolve(response);
 
