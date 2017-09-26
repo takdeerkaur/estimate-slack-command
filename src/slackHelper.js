@@ -47,16 +47,17 @@ class SlackHelper {
       });
   }
 
-  postMessage(channel, text, username, as_user = false) {
+  postMessage(channel_id, text, username, as_user = false, thread_ts = null) {
     return new Promise((resolve, reject) => {
       fetch('https://slack.com/api/chat.postMessage', {
           method: "POST",
           body: qs.stringify({
             token: process.env.OAUTH_ACCESS_TOKEN,
-            channel: channel.id ? channel.id : channel,
+            channel: channel_id,
             text: text,
             as_user: as_user,
-            username: username
+            username: username,
+            thread_ts: thread_ts
           }),
           headers: {
             "Content-Type": "application/x-www-form-urlencoded"

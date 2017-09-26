@@ -6,24 +6,38 @@ class Estimate {
 		this.token = token;
 		this.storyPoints = new StoryPoints();
 		this.slackHelper = new SlackHelper(this.token);
-		this.estimates = [];
-		this.estimationInProgress = false;
-		this.currentEstimation = {};
+		this.currentEstimations = [];
 		this.users = [];
 	}
 
-	createBaseEstimate(ticket) {
+	currentEstimation(channel) {
+		return this.currentEstimations.find(function(estimate) {
+			return estimate.channel === channel;
+		});
+	}
+
+	currentEstimationIndex(channel) {
+		return this.currentEstimations.findIndex(function(estimate) {
+			return estimate.channel === channel;
+		});
+	}
+
+	createBaseEstimate(ticket, channel) {
 		let baseEstimate = {};
 		// 1. if estimate: post message with ticket number + ticket description from JIRA + emoji reactions of SP options
 		// this._getJiraTicket('ADVP-1000');
-		if (this.estimationInProgress) {
-			baseEstimate.text = `There is already an estimation in progress. Please /estimate close before creating a new one.`;
+		if (this.currentEstimation(channel)) {
+			baseEstimate.text = `There is already an estimation in progress in this channel. Please /estimate close before creating a new one.`;
 			baseEstimate.response_type = 'in_channel';
-		} else {
-			this.estimationInProgress = true;
-			this.currentEstimation = {
-				ticket: ticket
-			}
+		} 
+		else {
+			this.currentEstimations.push({
+				ticket: ticket,
+				channel: channel,
+				estimates: [],
+				count: 0
+			});
+
 			baseEstimate.text = `Estimation in progress for: ${ticket}`;
 			baseEstimate.response_type = 'in_channel';
 			baseEstimate.attachments = [{
@@ -38,49 +52,60 @@ class Estimate {
 
 	revealEstimates(body) {
 		let self = this;
-		
-		self.estimates.sort(function (a, b) {
+		let channel = body.channel.id;
+		let currentEstimate = this.currentEstimation(channel);
+		let estimates = currentEstimate.estimates.sort(function (a, b) {
 			return a.value > b.value;
 		});
 
 
-		self.slackHelper.postMessage(body.channel, `Revealing estimates for ${this.currentEstimation.ticket}!`)
+		self.slackHelper.postMessage(channel, `Revealing estimates for ${currentEstimate.ticket}!`)
 			.then(function (newMessage) {
-				self.estimates.forEach(function (value) {
+				console.log("the new mesg", newMessage);
+				estimates.forEach(function (value) {
 					let user = self.users.find(function(x) {
-						return x.user_id === value.user;
+						return x.user_id === value.user_id;
 					});
-					self.slackHelper.addReaction(user.token, value, newMessage);
+
+					if(user) {
+						self.slackHelper.addReaction(user.token, value, newMessage);
+					}
+					else {
+						self.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts);
+					}
 				});
 
-				self.estimates = [];
-				self.estimationInProgress = false;
-				self.currentEstimation = {};
+				self.currentEstimations.splice(self.currentEstimationIndex(channel), 1);
 			});
 	}
 
 	addEstimate(point, user_id, user_name, channel_id) {
 		let addedEstimate = {};
+		let currentEstimate = this.currentEstimation(channel_id);
+		let estimates = currentEstimate.estimates;
 
-		if (this.estimationInProgress) {
-			let alreadyVoted = this.estimates.findIndex(function(estimate) {
+		if (currentEstimate) {
+			console.log("current estimates", estimates);
+			let alreadyVoted = estimates.findIndex(function(estimate) {
 				return estimate.user_id === user_id;
 			});
+			console.log("already voted/?", alreadyVoted);
 
 			if(alreadyVoted > -1) {
-				this.estimates[alreadyVoted].emoji = point.emoji;
-				this.estimates[alreadyVoted].value = point.value;
+				estimates[alreadyVoted].emoji = point.emoji;
+				estimates[alreadyVoted].value = point.value;
 			}
 			else {
-				this.estimates.push({
+				estimates.push({
 					emoji: point.emoji,
-					user: user_id,
+					user_id: user_id,
 					username: user_name,
 					value: point.value
 				});
 
-				this.currentEstimation.count = this.currentEstimation.count ? this.currentEstimation.count + 1 : 1;
-				this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${this.currentEstimation.count} total votes.`, user_name);
+				currentEstimate.count++;
+				// do in thread
+				this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${currentEstimate.count} total votes.`, user_name);
 			}
 
 			addedEstimate.text = `You voted :${point.emoji}:`;
@@ -118,12 +143,12 @@ class Estimate {
 		};
 	}
 
-	help() {
+	help(channel) {
 		let helpResponse = {};
 
 		helpResponse.response_type = 'ephemeral';
 		
-		if (this.estimationInProgress) {
+		if (this.currentEstimation(channel)) {
 			helpResponse.text = "To end the current estimation in progress, enter `/estimate close`! You must close the current estimation before beginning a new one."
 
 		} else {
@@ -149,13 +174,15 @@ class Estimate {
 
 			const message = body.text;
 			const validPoint = this.storyPoints.isValidStoryPoint(message);
+			const channel = body.channel_id;
+			let currentEstimate = this.currentEstimation(channel);
 
 			if (!message || message === 'help') {
-				resolve(this.help());
+				resolve(this.help(channel));
 			}
-			else if(this.estimationInProgress) {
+			else if(currentEstimate) {
 				if(validPoint) {
-					resolve(this.addEstimate(validPoint, body.user_id, body.user_name, body.channel_id));
+					resolve(this.addEstimate(validPoint, body.user_id, body.user_name, channel));
 				}
 				else if(message === 'close') {
 					resolve(this.beginClose());
@@ -168,7 +195,7 @@ class Estimate {
 				}
 			}
 			else {
-				resolve(this.createBaseEstimate(message));
+				resolve(this.createBaseEstimate(message, channel));
 			}
 		});
 	}
