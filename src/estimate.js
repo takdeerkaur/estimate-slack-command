@@ -55,7 +55,7 @@ class Estimate {
 		let channel = body.channel.id;
 		let currentEstimate = this.currentEstimation(channel);
 		let estimates = currentEstimate.estimates.sort(function (a, b) {
-			return a.value > b.value;
+			return a.value - b.value;
 		});
 
 
