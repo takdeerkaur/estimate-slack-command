@@ -4,11 +4,9 @@
 
 ## Requirements
 Node v8  
-ngrok
 
 ## How to use
-Setup your .env file with the correct values.  
-Update `add_to_slack.html` with correct client id.  
-Run `node server` in Terminal to run application.  
+Setup your .env file with the correct values.
+Follow heroku deployment process or test locally with `ngrok`.
 
 
