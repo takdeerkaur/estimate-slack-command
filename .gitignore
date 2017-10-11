@@ -2,4 +2,5 @@
 package-lock.json
 node_modules/*
 .env
-render/
+render/*
+!render/index.js
