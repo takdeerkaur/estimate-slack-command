@@ -47,7 +47,7 @@ class SlackHelper {
       });
   }
 
-  postMessage(channel_id, text, username, as_user = false, thread_ts = null) {
+  postMessage(channel_id, text, username, as_user = false, thread_ts = null, emoji) {
     return new Promise((resolve, reject) => {
       fetch('https://slack.com/api/chat.postMessage', {
           method: "POST",
@@ -57,7 +57,8 @@ class SlackHelper {
             text: text,
             as_user: as_user,
             username: username,
-            thread_ts: thread_ts
+            thread_ts: thread_ts,
+            icon_emoji: emoji
           }),
           headers: {
             "Content-Type": "application/x-www-form-urlencoded"
