@@ -1,38 +1,34 @@
+require("dot").process({
+	global: "_page.render", 
+	destination: __dirname + "/render/", 
+	path: (__dirname + "/views")
+});
+
 const Express = require('express');
+const app = new Express();
 const request = require('request')
 const bodyParser = require('body-parser');
 const Estimate = require('./src/estimate');
 const Action = require('./src/action');
 const SlackHelper = require('./src/slackHelper');
+const dotenv = require('dotenv');
+const render = require('./render');
 
-const app = new Express();
+dotenv.load();
+
 app.use(bodyParser.urlencoded({
 	extended: true
 }));
 
-const dotenv = require('dotenv');
-dotenv.load();
-
-const {
-	SLACK_TOKEN: slackToken,
-	PORT
-} = process.env;
-
-if (!slackToken) {
-	console.error('missing environment variable SLACK_TOKEN');
-	process.exit(1);
-}
-
-const port = PORT || 80;
-
-let estimate = new Estimate(slackToken);
-let action = new Action(slackToken, estimate);
-let slack = new SlackHelper(slackToken);
+let estimate = new Estimate(process.env.SLACK_TOKEN);
+let action = new Action(process.env.SLACK_TOKEN, estimate);
+let slack = new SlackHelper(process.env.SLACK_TOKEN);
 
 app.post('/', (req, res) => {
 	if (req.body) {
 		estimate.execute(req.body)
 			.then((result) => {
+				console.log("this is response from execute", result);
 				return res.json(result);
 			})
 			.catch(console.error);
@@ -65,10 +61,10 @@ app.get('/authorize', (req, res) => {
 	}
 });
 
-app.get('/add', (req, res) =>{
-    res.sendFile(__dirname + '/add_to_slack.html')
+app.get('/add', (req, res) => {
+	res.send(render.add_to_slack());
 })
 
-app.listen(port, () => {
-	console.log(`Server started at localhost:${port}`);
+app.listen(process.env.PORT, () => {
+	console.log(`Server started at localhost:${process.env.PORT}`);
 })

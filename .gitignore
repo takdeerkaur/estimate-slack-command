@@ -2,4 +2,4 @@
 package-lock.json
 node_modules/*
 .env
-add_to_slack.html
+render/
