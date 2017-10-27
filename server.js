@@ -6,15 +6,21 @@ require("dot").process({
 
 const Express = require('express');
 const app = new Express();
+const dotenv = require('dotenv');
+dotenv.load();
 const request = require('request')
 const bodyParser = require('body-parser');
+const mongo = require('mongodb');
+const db = require('monk')(process.env.MONGOLAB_URI);
 const Estimate = require('./src/estimate');
 const Action = require('./src/action');
 const SlackHelper = require('./src/slackHelper');
-const dotenv = require('dotenv');
 const render = require('./render');
 
-dotenv.load();
+app.use(function(req,res,next){
+    req.db = db;
+    next();
+});
 
 app.use(bodyParser.urlencoded({
 	extended: true
@@ -50,11 +56,30 @@ app.get('/authorize', (req, res) => {
 	if (req.query && req.query.code) {
 		slack.authorize(req.query.code)
 			.then((result) => {
-				estimate.users.push({
-					user_id: result.user_id,
-					token: result.access_token
+				let db = req.db;
+				let collection = db.get('planobot');
+				let data = {
+					'user_id' : result.user_id,
+					'token' : result.access_token
+				};
+
+				collection.update({
+					'user_id': result.user_id}, 
+					data, {
+					'upsert': true
+				}, function (err, doc) {
+					if (err) {
+						res.send("There was a problem adding the information to the database.");
+					}
+					else {
+						res.send("Success!")
+					}
 				});
-				res.send("Success!")
+				// estimate.users.push({
+				// 	user_id: result.user_id,
+				// 	token: result.access_token
+				// });
+				// res.send("Success!")
 			})
 			.catch(console.error);
 
