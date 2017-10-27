@@ -1,6 +1,7 @@
 const SlackHelper = require('./slackHelper');
 const StoryPoints = require('./storyPoints');
-const db = require('../db.js');
+const mongo = require('mongodb');
+const db = require('monk')(process.env.MONGODB_URI);
 
 class Estimate {
 	constructor(token) {

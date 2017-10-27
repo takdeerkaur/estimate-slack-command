@@ -10,7 +10,8 @@ const dotenv = require('dotenv');
 dotenv.load();
 const request = require('request')
 const bodyParser = require('body-parser');
-const db = require('./db.js');
+const mongo = require('mongodb');
+const db = require('monk')(process.env.MONGODB_URI);
 const Estimate = require('./src/estimate');
 const Action = require('./src/action');
 const SlackHelper = require('./src/slackHelper');
