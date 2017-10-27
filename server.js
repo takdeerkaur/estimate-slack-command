@@ -11,7 +11,7 @@ dotenv.load();
 const request = require('request')
 const bodyParser = require('body-parser');
 const mongo = require('mongodb');
-const db = require('monk')(process.env.MONGOLAB_URI);
+const db = require('monk')(process.env.MONGODB_URI);
 const Estimate = require('./src/estimate');
 const Action = require('./src/action');
 const SlackHelper = require('./src/slackHelper');
