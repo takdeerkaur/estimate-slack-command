@@ -31,6 +31,7 @@ let slack = new SlackHelper(process.env.SLACK_TOKEN);
 
 app.post('/', (req, res) => {
 	if (req.body) {
+		estimate.execute(req.body)
 			.then((result) => {
 				console.log("this is response from execute", result);
 				return res.json(result);
