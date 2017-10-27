@@ -10,8 +10,7 @@ const dotenv = require('dotenv');
 dotenv.load();
 const request = require('request')
 const bodyParser = require('body-parser');
-const mongo = require('mongodb');
-const db = require('monk')(process.env.MONGODB_URI);
+const db = require('./db.js');
 const Estimate = require('./src/estimate');
 const Action = require('./src/action');
 const SlackHelper = require('./src/slackHelper');
@@ -32,7 +31,6 @@ let slack = new SlackHelper(process.env.SLACK_TOKEN);
 
 app.post('/', (req, res) => {
 	if (req.body) {
-		estimate.execute(req.body)
 			.then((result) => {
 				console.log("this is response from execute", result);
 				return res.json(result);
@@ -75,11 +73,6 @@ app.get('/authorize', (req, res) => {
 						res.send("Success!")
 					}
 				});
-				// estimate.users.push({
-				// 	user_id: result.user_id,
-				// 	token: result.access_token
-				// });
-				// res.send("Success!")
 			})
 			.catch(console.error);
 

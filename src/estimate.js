@@ -1,5 +1,6 @@
 const SlackHelper = require('./slackHelper');
 const StoryPoints = require('./storyPoints');
+const db = require('../db.js');
 
 class Estimate {
 	constructor(token) {
@@ -11,13 +12,21 @@ class Estimate {
 	}
 
 	isAuthenticated(user_id) {
-		return this.users.find(function(user) {
-			return user.user_id === user_id;
-		});
+		let collection = db.get('planobot');
+
+		collection.findOne({
+			user_id: user_id
+		})
+		.then((doc) => {
+			console.log("is auth doc", doc);
+			return doc;
+		})
+		// return this.users.find(function(user) {
+		// 	return user.user_id === user_id;
+		// });
 	}
 
 	currentEstimation(channel) {
-		console.log("thse are current estimtions...", this.currentEstimations);
 		return this.currentEstimations.find(function(estimate) {
 			return estimate.channel === channel;
 		});
