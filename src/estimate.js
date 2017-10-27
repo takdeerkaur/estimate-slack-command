@@ -16,23 +16,23 @@ class Estimate {
 		return new Promise((resolve, reject) => {
 			let collection = db.get('planobot');
 			collection.findOne({
-				user_id: user_id
-			})
-			.then((doc) => {
-				console.log("is auth doc", doc);
-				resolve(doc);
-			});
+					user_id: user_id
+				})
+				.then((doc) => {
+					console.log("is auth doc", doc);
+					resolve(doc);
+				});
 		});
 	}
 
 	currentEstimation(channel) {
-		return this.currentEstimations.find(function(estimate) {
+		return this.currentEstimations.find(function (estimate) {
 			return estimate.channel === channel;
 		});
 	}
 
 	currentEstimationIndex(channel) {
-		return this.currentEstimations.findIndex(function(estimate) {
+		return this.currentEstimations.findIndex(function (estimate) {
 			return estimate.channel === channel;
 		});
 	}
@@ -45,8 +45,7 @@ class Estimate {
 		// this._getJiraTicket('ADVP-1000');
 		if (this.currentEstimation(channel)) {
 			baseEstimate.text = `There is already an estimation in progress in this channel. Please /estimate close before creating a new one.`;
-		} 
-		else {
+		} else {
 			this.currentEstimations.push({
 				ticket: ticket,
 				channel: channel,
@@ -75,12 +74,11 @@ class Estimate {
 			.then(function (newMessage) {
 				estimates.forEach(function (value) {
 					self.isAuthenticated(value.user_id)
-						.then(function(user) {
+						.then(function (user) {
 							console.log("this user", user);
-							if(user) {
+							if (user) {
 								self.slackHelper.addReaction(user.token, value, newMessage);
-							}
-							else {
+							} else {
 								self.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
 							}
 						})
@@ -100,67 +98,64 @@ class Estimate {
 			}
 		};
 
-		let freq = points.reduce(function(freq, current) {
-			let currentMaxFreq = freq.map.get(freq.max); 
+		let freq = points.reduce(function (freq, current) {
+			let currentMaxFreq = freq.map.get(freq.max);
 			let currentVal = current.value;
 			freq.map.set(currentVal, freq.map.get(currentVal) ? freq.map.get(currentVal) + 1 : 1);
-			if(!currentMaxFreq || freq.map.get(currentVal) >= currentMaxFreq) {
+			if (!currentMaxFreq || freq.map.get(currentVal) >= currentMaxFreq) {
 				freq.max = current;
 			}
-			return freq;	
+			return freq;
 		}, initialFreq);
 
 		return freq.max;
 	}
 
 	addEstimate(point, user_id, user_name, channel_id) {
-		let addedEstimate = {};
 		let currentEstimate = this.currentEstimation(channel_id);
 
 		console.log("what is current estimate", currentEstimate);
 
-		if (currentEstimate) {
-			let estimates = currentEstimate.estimates;
-			console.log("current estimates", estimates);
-			let alreadyVoted = estimates.findIndex(function(estimate) {
-				return estimate.user_id === user_id;
-			});
-			console.log("already voted/?", alreadyVoted);
-
-			if(alreadyVoted > -1) {
-				estimates[alreadyVoted].emoji = point.emoji;
-				estimates[alreadyVoted].value = point.value;
+		if (!currentEstimate) {
+			return {
+				text: `There is no estimation currently in progress. Please /estimate *ticket_number* to create a new one.`,
+				response_type: 'ephemeral'
 			}
-			else {
-				estimates.push({
-					emoji: point.emoji,
-					user_id: user_id,
-					username: user_name,
-					value: point.value
-				});
-
-				currentEstimate.count++;
-				// do in thread
-				this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${currentEstimate.count} total votes.`, user_name);
-			}
-
-			addedEstimate.text = `You voted :${point.emoji}:`;
-
-			this.isAuthenticated(user_id)
-				.then(function(user) {
-					if(!user) {
-						let unauthenticatedUser = {
-							"text": `You voted :${point.emoji}: \nYou must authenticate before being able to estimate using reactions. To do so, please add this app to Slack via ${process.env.BASE_URL}/add.`
-						}
-						return unauthenticatedUser;
-					}
-				});
-		} else {
-			addedEstimate.text = `There is no estimation currently in progress. Please /estimate *ticket_number* to create a new one.`;
-			addedEstimate.response_type = 'ephemeral';
 		}
 
-		return addedEstimate;
+		this.isAuthenticated(user_id)
+			.then(function (user) {
+				let estimates = currentEstimate.estimates;
+				let alreadyVoted = estimates.findIndex(function (estimate) {
+					return estimate.user_id === user_id;
+				});
+
+				if (alreadyVoted > -1) {
+					estimates[alreadyVoted].emoji = point.emoji;
+					estimates[alreadyVoted].value = point.value;
+				} else {
+					estimates.push({
+						emoji: point.emoji,
+						user_id: user_id,
+						username: user_name,
+						value: point.value
+					});
+
+					currentEstimate.count++;
+					// do in thread
+					this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${currentEstimate.count} total votes.`, user_name);
+				}
+
+				if (!user) {
+					return {
+						"text": `You voted :${point.emoji}: \nYou must authenticate before being able to estimate using reactions. To do so, please add this app to Slack via ${process.env.BASE_URL}/add.`
+					};
+				} else {
+					return {
+						"text": `You voted :${point.emoji}:`
+					};
+				}
+			});
 	}
 
 	beginClose() {
@@ -193,7 +188,7 @@ class Estimate {
 		let helpResponse = {};
 
 		helpResponse.response_type = 'ephemeral';
-		
+
 		if (this.currentEstimation(channel)) {
 			helpResponse.text = "To end the current estimation in progress, enter `/estimate close`! You must close the current estimation before beginning a new one."
 
@@ -225,22 +220,18 @@ class Estimate {
 
 			if (!message || message === 'help') {
 				resolve(this.help(channel));
-			}
-			else if(validPoint) {
+			} else if (validPoint) {
 				resolve(this.addEstimate(validPoint, body.user_id, body.user_name, channel));
-			}
-			else if(currentEstimate) {
-				if(message === 'close') {
+			} else if (currentEstimate) {
+				if (message === 'close') {
 					resolve(this.beginClose());
-				}
-				else {
+				} else {
 					let invalidEstimate = {};
 					invalidEstimate.text = `${message} is not a valid story point. Please enter a valid fibonnaci number between 1 - 13`;
 					invalidEstimate.response_type = 'ephemeral';
 					resolve(invalidEstimate);
 				}
-			}
-			else {
+			} else {
 				resolve(this.createBaseEstimate(message, channel));
 			}
 		});
