@@ -76,16 +76,16 @@ class Estimate {
 		self.slackHelper.postMessage(channel, `Revealing estimates for \`${currentEstimate.ticket}\`!`, null, false, null, `:sparkles:`)
 			.then(function (newMessage) {
 				estimates.forEach(function (value) {
-					let user = self.isAuthenticated(value.user_id);
-
-					console.log("this user", user);
-					
-					if(user) {
-						self.slackHelper.addReaction(user.token, value, newMessage);
-					}
-					else {
-						self.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
-					}
+					self.isAuthenticated(value.user_id)
+						.then(function(user) {
+							console.log("this user", user);
+							if(user) {
+								self.slackHelper.addReaction(user.token, value, newMessage);
+							}
+							else {
+								self.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
+							}
+						})
 				});
 
 				self.slackHelper.postMessage(channel, `The magically agreed upon story point for ticket \`${currentEstimate.ticket}\` is :${storyPoint.emoji}: :tada:`, null, false, null, `:${storyPoint.emoji}:`);
@@ -148,13 +148,15 @@ class Estimate {
 
 			addedEstimate.text = `You voted :${point.emoji}:`;
 
-			if(!this.isAuthenticated(user_id)) {
-				let unauthenticatedUser = {
-					"text": `You voted :${point.emoji}: \nYou must authenticate before being able to estimate using reactions. To do so, please add this app to Slack via ${process.env.BASE_URL}/add.`
-				}
-	
-				return unauthenticatedUser;
-			}
+			this.isAuthenticated(user_id)
+				.then(function(user) {
+					if(!user) {
+						let unauthenticatedUser = {
+							"text": `You voted :${point.emoji}: \nYou must authenticate before being able to estimate using reactions. To do so, please add this app to Slack via ${process.env.BASE_URL}/add.`
+						}
+						return unauthenticatedUser;
+					}
+				});
 		} else {
 			addedEstimate.text = `There is no estimation currently in progress. Please /estimate *ticket_number* to create a new one.`;
 			addedEstimate.response_type = 'ephemeral';
