@@ -13,18 +13,16 @@ class Estimate {
 	}
 
 	isAuthenticated(user_id) {
-		let collection = db.get('planobot');
-
-		collection.findOne({
-			user_id: user_id
-		})
-		.then((doc) => {
-			console.log("is auth doc", doc);
-			return doc;
-		})
-		// return this.users.find(function(user) {
-		// 	return user.user_id === user_id;
-		// });
+		return new Promise((resolve, reject) => {
+			let collection = db.get('planobot');
+			collection.findOne({
+				user_id: user_id
+			})
+			.then((doc) => {
+				console.log("is auth doc", doc);
+				resolve(doc);
+			});
+		});
 	}
 
 	currentEstimation(channel) {
