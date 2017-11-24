@@ -12,27 +12,25 @@ class Estimate {
 		this.users = [];
 	}
 
-	isAuthenticated(user_id) {
-		return new Promise((resolve, reject) => {
+	async isAuthenticated(user_id) {
+		try {
 			let collection = db.get('planobot');
-			collection.findOne({
+			return await collection.findOne({
 				user_id: user_id
-			})
-			.then((doc) => {
-				console.log("is auth doc", doc);
-				resolve(doc);
 			});
-		});
+		} catch (err) {
+			console.log("This mongo connection didn't work bruh", err);
+		}
 	}
 
 	currentEstimation(channel) {
-		return this.currentEstimations.find(function(estimate) {
+		return this.currentEstimations.find(function (estimate) {
 			return estimate.channel === channel;
 		});
 	}
 
 	currentEstimationIndex(channel) {
-		return this.currentEstimations.findIndex(function(estimate) {
+		return this.currentEstimations.findIndex(function (estimate) {
 			return estimate.channel === channel;
 		});
 	}
@@ -45,8 +43,7 @@ class Estimate {
 		// this._getJiraTicket('ADVP-1000');
 		if (this.currentEstimation(channel)) {
 			baseEstimate.text = `There is already an estimation in progress in this channel. Please /estimate close before creating a new one.`;
-		} 
-		else {
+		} else {
 			this.currentEstimations.push({
 				ticket: ticket,
 				channel: channel,
@@ -60,35 +57,25 @@ class Estimate {
 		return baseEstimate;
 	};
 
-	revealEstimates(body) {
-		let self = this;
-		let channel = body.channel.id;
+	async revealEstimates(channel) {
 		let currentEstimate = this.currentEstimation(channel);
 		let estimates = currentEstimate.estimates.sort(function (a, b) {
 			return a.value - b.value;
 		});
 		let storyPoint = this.calculateStoryPoints(estimates);
+		let newMessage = await this.slackHelper.postMessage(channel, `Revealing estimates for \`${currentEstimate.ticket}\`!`, null, false, null, `:sparkles:`);
 
-		console.log("final estimates", estimates);
+		await Promise.all(estimates.map(async value => {
+			let user = await this.isAuthenticated(value.user_id);
+			if (user) {
+				await this.slackHelper.addReaction(user.token, value, newMessage);
+			} else {
+				await this.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
+			}
+		}));
 
-		self.slackHelper.postMessage(channel, `Revealing estimates for \`${currentEstimate.ticket}\`!`, null, false, null, `:sparkles:`)
-			.then(function (newMessage) {
-				estimates.forEach(function (value) {
-					self.isAuthenticated(value.user_id)
-						.then(function(user) {
-							console.log("this user", user);
-							if(user) {
-								self.slackHelper.addReaction(user.token, value, newMessage);
-							}
-							else {
-								self.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
-							}
-						})
-				});
-
-				self.slackHelper.postMessage(channel, `The magically agreed upon story point for ticket \`${currentEstimate.ticket}\` is :${storyPoint.emoji}: :tada:`, null, false, null, `:${storyPoint.emoji}:`);
-				self.currentEstimations.splice(self.currentEstimationIndex(channel), 1);
-			});
+		await this.slackHelper.postMessage(channel, `The magically agreed upon story point for ticket \`${currentEstimate.ticket}\` is :${storyPoint.emoji}: :tada:`, null, false, null, `:${storyPoint.emoji}:`);
+		this.currentEstimations.splice(this.currentEstimationIndex(channel), 1);
 	}
 
 	calculateStoryPoints(points) {
@@ -100,67 +87,57 @@ class Estimate {
 			}
 		};
 
-		let freq = points.reduce(function(freq, current) {
-			let currentMaxFreq = freq.map.get(freq.max); 
+		let freq = points.reduce(function (freq, current) {
+			let currentMaxFreq = freq.map.get(freq.max);
 			let currentVal = current.value;
 			freq.map.set(currentVal, freq.map.get(currentVal) ? freq.map.get(currentVal) + 1 : 1);
-			if(!currentMaxFreq || freq.map.get(currentVal) >= currentMaxFreq) {
+			if (!currentMaxFreq || freq.map.get(currentVal) >= currentMaxFreq) {
 				freq.max = current;
 			}
-			return freq;	
+			return freq;
 		}, initialFreq);
 
 		return freq.max;
 	}
 
-	addEstimate(point, user_id, user_name, channel_id) {
-		let addedEstimate = {};
-		let currentEstimate = this.currentEstimation(channel_id);
+	async addEstimate(point, user_id, user_name, channel_id) {
+		try {
+			let addedEstimate = {};
+			let currentEstimate = this.currentEstimation(channel_id);
+			let user = await this.isAuthenticated(user_id);
 
-		console.log("what is current estimate", currentEstimate);
-
-		if (currentEstimate) {
-			let estimates = currentEstimate.estimates;
-			console.log("current estimates", estimates);
-			let alreadyVoted = estimates.findIndex(function(estimate) {
-				return estimate.user_id === user_id;
-			});
-			console.log("already voted/?", alreadyVoted);
-
-			if(alreadyVoted > -1) {
-				estimates[alreadyVoted].emoji = point.emoji;
-				estimates[alreadyVoted].value = point.value;
-			}
-			else {
-				estimates.push({
-					emoji: point.emoji,
-					user_id: user_id,
-					username: user_name,
-					value: point.value
+			if (!currentEstimate) {
+				addedEstimate.text = `There is no estimation currently in progress. Please /estimate *ticket_number* to create a new one.`;
+				addedEstimate.response_type = 'ephemeral';
+			} else if (!user) {
+				addedEstimate.text = `You voted :${point.emoji}: \nYou must authenticate before being able to estimate using reactions. To do so, please add this app to Slack via ${process.env.BASE_URL}/add.`;
+			} else {
+				let estimates = currentEstimate.estimates;
+				let alreadyVoted = estimates.findIndex(function (estimate) {
+					return estimate.user_id === user_id;
 				});
 
-				currentEstimate.count++;
-				// do in thread
-				this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${currentEstimate.count} total votes.`, user_name);
+				if (alreadyVoted > -1) {
+					estimates[alreadyVoted].emoji = point.emoji;
+					estimates[alreadyVoted].value = point.value;
+				} else {
+					estimates.push({
+						emoji: point.emoji,
+						user_id: user_id,
+						username: user_name,
+						value: point.value
+					});
+
+					currentEstimate.count++;
+					addedEstimate.text = `You voted :${point.emoji}:`;
+					// do in thread - this is not working...
+					await this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${currentEstimate.count} total votes.`, user_name);
+				}
 			}
-
-			addedEstimate.text = `You voted :${point.emoji}:`;
-
-			this.isAuthenticated(user_id)
-				.then(function(user) {
-					if(!user) {
-						let unauthenticatedUser = {
-							"text": `You voted :${point.emoji}: \nYou must authenticate before being able to estimate using reactions. To do so, please add this app to Slack via ${process.env.BASE_URL}/add.`
-						}
-						return unauthenticatedUser;
-					}
-				});
-		} else {
-			addedEstimate.text = `There is no estimation currently in progress. Please /estimate *ticket_number* to create a new one.`;
-			addedEstimate.response_type = 'ephemeral';
+			return addedEstimate;
+		} catch (e) {
+			console.log("what is going on in add estimate", e);
 		}
-
-		return addedEstimate;
 	}
 
 	beginClose() {
@@ -193,7 +170,7 @@ class Estimate {
 		let helpResponse = {};
 
 		helpResponse.response_type = 'ephemeral';
-		
+
 		if (this.currentEstimation(channel)) {
 			helpResponse.text = "To end the current estimation in progress, enter `/estimate close`! You must close the current estimation before beginning a new one."
 
@@ -204,10 +181,10 @@ class Estimate {
 		return helpResponse;
 	}
 
-	execute(body) {
-		return new Promise((resolve, reject) => {
-			if (body.token !== this.token) {
-				resolve({
+	async execute(token, message, channel_id, user_id, user_name) {
+		try {
+			if (token !== this.token) {
+				return {
 					text: '',
 					attachments: [{
 						color: 'danger',
@@ -215,35 +192,32 @@ class Estimate {
 						mrkdwn_in: ['text'],
 						response_type: 'ephemeral'
 					}]
-				});
+				};
 			}
 
-			const message = body.text;
 			const validPoint = this.storyPoints.isValidStoryPoint(message);
-			const channel = body.channel_id;
-			let currentEstimate = this.currentEstimation(channel);
+			const currentEstimate = this.currentEstimation(channel_id);
 
 			if (!message || message === 'help') {
-				resolve(this.help(channel));
-			}
-			else if(validPoint) {
-				resolve(this.addEstimate(validPoint, body.user_id, body.user_name, channel));
-			}
-			else if(currentEstimate) {
-				if(message === 'close') {
-					resolve(this.beginClose());
-				}
-				else {
+				return this.help(channel_id);
+			} else if (validPoint) {
+				return await this.addEstimate(validPoint, user_id, user_name, channel_id);
+			} else if (currentEstimate) {
+				if (message === 'close') {
+					// return this.beginClose();
+					return await this.revealEstimates(channel_id);
+				} else {
 					let invalidEstimate = {};
 					invalidEstimate.text = `${message} is not a valid story point. Please enter a valid fibonnaci number between 1 - 13`;
 					invalidEstimate.response_type = 'ephemeral';
-					resolve(invalidEstimate);
+					return invalidEstimate;
 				}
+			} else {
+				return this.createBaseEstimate(message, channel_id);
 			}
-			else {
-				resolve(this.createBaseEstimate(message, channel));
-			}
-		});
+		} catch (e) {
+			console.log("execution error", e);
+		}
 	}
 }
 

@@ -27,24 +27,26 @@ class SlackHelper {
   }
 
   addReaction(token, value, message) {
-    fetch('https://slack.com/api/reactions.add', {
-        method: "POST",
-        body: qs.stringify({
-          token: token,
-          name: value.emoji,
-          channel: message.channel,
-          timestamp: message.ts
-        }),
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        }
-      })
-      .then((resp) => resp.json())
-      .then(function (data) {
-        return data;
-      }, function (error) {
-        return error;
-      });
+    return new Promise((resolve, reject) => {
+      fetch('https://slack.com/api/reactions.add', {
+          method: "POST",
+          body: qs.stringify({
+            token: token,
+            name: value.emoji,
+            channel: message.channel,
+            timestamp: message.ts
+          }),
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          }
+        })
+        .then((resp) => resp.json())
+        .then(function (data) {
+          resolve(data);
+        }, function (error) {
+          resolve(error);
+        });
+    });
   }
 
   postMessage(channel_id, text, username, as_user = false, thread_ts = null, emoji) {

@@ -6,15 +6,14 @@ class Action {
     this.estimate = estimate;
   }
 
-  close(body) {
-    return new Promise((resolve, reject) => {
-      if (body.token !== this.token) {
-        resolve({
+  async close(token, actions, channel_id) {
+      if (token !== this.token) {
+        return {
           text: 'This token invalid bruh'
-        });
+        };
       }
 
-      let action = body.actions[0].name;
+      let action = actions[0].name;
       let response = {};
 
       switch (action) {
@@ -24,7 +23,7 @@ class Action {
           }
           break;
         case 'confirm':
-          this.estimate.revealEstimates(body);
+          await this.estimate.revealEstimates(channel_id);
           response = {
             text: 'Estimation closed'
           }
@@ -35,9 +34,7 @@ class Action {
           }
       }
 
-      resolve(response);
-
-    });
+      return response;
   }
 }
 
