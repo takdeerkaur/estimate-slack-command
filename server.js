@@ -12,7 +12,7 @@ const request = require('request')
 const bodyParser = require('body-parser');
 const mongo = require('mongodb');
 const db = require('monk')(process.env.MONGODB_URI);
-const Estimate = require('./src/estimate');
+const Estimations = require('./src/estimations');
 const Action = require('./src/action');
 const SlackHelper = require('./src/slackHelper');
 const render = require('./render');
@@ -26,15 +26,15 @@ app.use(bodyParser.urlencoded({
 	extended: true
 }));
 
-let estimate = new Estimate(process.env.SLACK_TOKEN);
-let action = new Action(process.env.SLACK_TOKEN, estimate);
+let estimations = new Estimations(process.env.SLACK_TOKEN);
+let action = new Action(process.env.SLACK_TOKEN, estimations);
 let slack = new SlackHelper(process.env.SLACK_TOKEN);
 
 app.post('/', async(req, res) => {
 	try {
 		if (req.body) {
 			let plan = req.body;
-			let result = await estimate.execute(plan.token, plan.text, plan.channel_id, plan.user_id, plan.user_name);
+			let result = await estimations.execute(plan.token, plan.text, plan.channel_id, plan.user_id, plan.user_name);
 			return res.json(result);
 		}
 	} catch (e) {

@@ -1,5 +1,3 @@
-const Estimate = require('./estimate');
-
 class Action {
   constructor(token, estimate) {
     this.token = token;
