@@ -1,7 +1,7 @@
 {
   "name": "estimate-slack-command",
   "engines": {
-    "node": ">=8",
+    "node": "^8",
     "npm": ">=5"
   },
   "version": "1.0.0",
