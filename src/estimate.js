@@ -129,10 +129,11 @@ class Estimate {
 					});
 
 					currentEstimate.count++;
-					addedEstimate.text = `You voted :${point.emoji}:`;
-					// do in thread - this is not working...
+					// do in thread
 					await this.slackHelper.postMessage(channel_id, `${user_name} has voted! We now have ${currentEstimate.count} total votes.`, user_name);
 				}
+
+				addedEstimate.text = `You voted :${point.emoji}:`;
 			}
 			return addedEstimate;
 		} catch (e) {
