@@ -26,13 +26,13 @@ class SlackHelper {
     });
   }
 
-  addReaction(token, value, message) {
+  addReaction(user_token, emoji, message) {
     return new Promise((resolve, reject) => {
       fetch('https://slack.com/api/reactions.add', {
           method: "POST",
           body: qs.stringify({
-            token: token,
-            name: value.emoji,
+            token: user_token,
+            name: emoji,
             channel: message.channel,
             timestamp: message.ts
           }),

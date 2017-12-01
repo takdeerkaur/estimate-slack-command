@@ -61,9 +61,13 @@ app.get('/authorize', async(req, res) => {
 			let auth = await slack.authorize(req.query.code);
 			let db = req.db;
 			let collection = db.get('planobot');
+			let date = new Date();
 			let data = {
 				'user_id': auth.user_id,
-				'token': auth.access_token
+				'token': auth.access_token,
+				'team_name': auth.team_name,
+				'team_id': auth.team_id,
+				'timestamp': date.toISOString()
 			};
 			let update = await collection.update({
 					'user_id': auth.user_id
