@@ -2,8 +2,9 @@ var fetch = require('node-fetch');
 var qs = require('qs');
 
 class SlackHelper {
-  constructor(token) {
+  constructor(token, estimation) {
     this.token = token;
+    this.estimation = estimation;
   }
 
   authorize(code) {
@@ -72,8 +73,28 @@ class SlackHelper {
         })
         .catch(function (error) {
           resolve("Major flop", error);
+          console.log("Error posting message", error);
         });
     });
+  }
+
+  async delayedReveal(response_url, channel_id) {
+    let reveal = await this.estimation.revealEstimates(channel_id);
+    fetch(response_url, {
+        method: "POST",
+        body: qs.stringify(reveal),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+      .then((resp) => resp.json())
+      .then(function (data) {
+        return data;
+      })
+      .catch(function (error) {
+        return error;
+        console.log("Error revealing", error);
+      });
   }
 }
 

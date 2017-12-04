@@ -10,7 +10,6 @@ class Estimations {
 		this.storyPoints = new StoryPoints();
 		this.slackHelper = new SlackHelper(this.token);
 		this.currentEstimations = [];
-		this.users = [];
 	}
 
 	async isAuthenticated(user_id) {
@@ -56,6 +55,16 @@ class Estimations {
 		return baseEstimate;
 	};
 
+	formatFinalEstimates(estimates) {
+		let message = estimates.reduce(function (message, estimate) {
+			let user = estimate.username;
+			let sp = estimate.emoji;
+			return `\n${message}\n${user} voted :${sp}:`;
+		}, ':100:');
+
+		return message;
+	}
+
 	async revealEstimates(channel) {
 		try {
 			let currentEstimate = this.currentEstimation(channel);
@@ -64,16 +73,28 @@ class Estimations {
 			});
 			let storyPoint = this.calculateStoryPoints(estimates);
 			let newMessage = await this.slackHelper.postMessage(channel, `Revealing estimates for \`${currentEstimate.ticket}\`!`, null, false, null, `:sparkles:`);
-	
-			await Promise.all(estimates.map(async value => {
-				let user = await this.isAuthenticated(value.user_id);
+			let allEstimates = this.formatFinalEstimates(estimates);
+
+			await this.slackHelper.postMessage(channel, allEstimates, null, false, newMessage.ts, `:${storyPoint.emoji}:`);
+			for (let estimate of estimates) {
+				let user = await this.isAuthenticated(estimate.user_id);
 				if (user) {
-					await this.slackHelper.addReaction(user.token, value.emoji, newMessage);
-				} else {
-					await this.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
+					await this.slackHelper.addReaction(user.token, estimate.emoji, newMessage);
 				}
-			}));
-	
+				// else {
+				// 	await this.slackHelper.postMessage(channel, `${estimate.username} has not authenticated, but voted :${estimate.emoji}:`, estimate.username, false, newMessage.ts, `:${estimate.emoji}:`);
+				// }
+			}
+			// await Promise.all(estimates.map(async value => {
+			// 	let user = await this.isAuthenticated(value.user_id);
+			// 	if (user) {
+			// 		await this.slackHelper.addReaction(user.token, value.emoji, newMessage);
+			// 	} 
+			// 	else {
+			// 		await this.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
+			// 	}
+			// }));
+			
 			await this.slackHelper.postMessage(channel, `The magically agreed upon story point for ticket \`${currentEstimate.ticket}\` is :${storyPoint.emoji}: :tada:`, null, false, null, `:${storyPoint.emoji}:`);
 			this.currentEstimations.splice(this.currentEstimationIndex(channel), 1);
 		} catch (e) {
@@ -213,8 +234,11 @@ class Estimations {
 				return await this.addEstimate(validPoint, user_id, user_name, channel_id);
 			} else if (currentEstimate) {
 				if (message === 'close') {
-					// return this.beginClose();
-					return await this.revealEstimates(channel_id);
+					return { 
+						delayed: true, 
+						channel_id: channel_id,
+						text: "Preparing to reveal final estimates... :robot_face:" 
+					};
 				} else {
 					let invalidEstimate = {};
 					invalidEstimate.text = `${message} is not a valid story point. Please enter a valid fibonnaci number between 1 - 13`;

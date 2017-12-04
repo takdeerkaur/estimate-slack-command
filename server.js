@@ -28,14 +28,19 @@ app.use(bodyParser.urlencoded({
 
 let estimations = new Estimations(process.env.SLACK_TOKEN);
 let action = new Action(process.env.SLACK_TOKEN, estimations);
-let slack = new SlackHelper(process.env.SLACK_TOKEN);
+let slack = new SlackHelper(process.env.SLACK_TOKEN, estimations);
 
 app.post('/', async(req, res) => {
 	try {
 		if (req.body) {
 			let plan = req.body;
 			let result = await estimations.execute(plan.token, plan.text, plan.channel_id, plan.user_id, plan.user_name);
-			return res.json(result);
+			if (result.delayed) {
+				// Handle reveal taking longer than 3 sec
+				return res.json(result).send(slack.delayedReveal(plan.response_url, result.channel_id));
+			} else {
+				return res.json(result);
+			}
 		}
 	} catch (e) {
 		console.log("this plan failed", e);
