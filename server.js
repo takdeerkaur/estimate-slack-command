@@ -37,7 +37,7 @@ app.post('/', async(req, res) => {
 			let result = await estimations.execute(plan.token, plan.text, plan.channel_id, plan.user_id, plan.user_name);
 			if (result.delayed) {
 				// Handle reveal taking longer than 3 sec
-				return res.json(result).send(slack.delayedReveal(plan.response_url, result.channel_id));
+				return res.status(200).send(slack.delayedReveal(plan.response_url, result.channel_id));
 			} else {
 				return res.json(result);
 			}
