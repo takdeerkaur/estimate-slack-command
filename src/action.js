@@ -4,35 +4,50 @@ class Action {
     this.estimate = estimate;
   }
 
-  async close(token, actions, channel_id) {
-      if (token !== this.token) {
-        return {
-          text: 'This token invalid bruh'
-        };
+  async close(token, channel_id) {
+    if (token !== this.token) {
+      return {
+        text: 'This token invalid bruh'
+      };
+    }
+    try {
+      await this.estimate.revealEstimates(channel_id);
+      return;
+    } catch (err) {
+      return {
+        text: "Something went horribly wrong"
       }
+    }
+  }
 
-      let action = actions[0].name;
-      let response = {};
+  async vote(token, action, user_id, user_name, channel_id) {
+    if (token !== this.token) {
+      return {
+        text: 'This token invalid bruh'
+      };
+    }
 
-      switch (action) {
-        case 'cancel':
-          response = {
-            text: 'Keep on estimating!'
-          }
-          break;
-        case 'confirm':
-          await this.estimate.revealEstimates(channel_id);
-          response = {
-            text: 'Estimation closed'
-          }
-          break;
-        default:
-          response = {
-            text: 'Action invalid'
-          }
-      }
+    const selected = action.selected_options[0].value;
+    let response = {};
 
-      return response;
+    try {
+			const validPoint = this.estimate.storyPoints.isValidStoryPoint(selected);
+			const currentEstimate = this.estimate.currentEstimation(channel_id);
+      
+      if (validPoint) {
+				return await this.estimate.addEstimate(validPoint, user_id, user_name, channel_id);
+      } 
+      else {
+					let invalidEstimate = {};
+					invalidEstimate.text = `${selected} is not a valid story point. Please enter a valid fibonnaci number between 1 - 13`;
+					invalidEstimate.response_type = 'ephemeral';
+					return invalidEstimate;
+			}
+		} catch (e) {
+			console.log("execution error", e);
+		}
+
+    return response;
   }
 }
 

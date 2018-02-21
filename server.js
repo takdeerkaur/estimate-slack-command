@@ -33,11 +33,11 @@ let slack = new SlackHelper(process.env.SLACK_TOKEN, estimations);
 app.post('/', async(req, res) => {
 	try {
 		if (req.body) {
-			let plan = req.body;
-			let result = await estimations.execute(plan.token, plan.text, plan.channel_id, plan.user_id, plan.user_name);
+			const plan = req.body;
+			const result = await estimations.execute(plan.token, plan.text, plan.channel_id, plan.user_id, plan.user_name);
 			if (result.delayed) {
 				// Handle reveal taking longer than 3 sec
-				return res.status(200).send(slack.delayedReveal(plan.response_url, result.channel_id));
+				return res.status(200).send(slack.delayedPost(plan.response_url, result.channel_id, result.ticket));
 			} else {
 				return res.json(result);
 			}
@@ -47,12 +47,23 @@ app.post('/', async(req, res) => {
 	}
 });
 
-// This refactoring needs to be tested
 app.post('/interact', async(req, res) => {
 	try {
 		if (req.body && req.body.payload) {
-			let close = JSON.parse(req.body.payload);
-			let result = await action.close(close.token, close.actions, close.channel.id);
+			const payload = JSON.parse(req.body.payload);
+			const token = payload.token;
+			const username = payload.user.name;
+			const userId = payload.user.id;
+			const channelId = payload.channel.id;
+			const callbackId = payload.callback_id;
+			const userAction = payload.actions[0];
+			let result;
+			if (userAction.value === "close") {
+				result = await action.close(token, channelId);
+			}
+			else {
+				result = await action.vote(token, userAction, userId, username, channelId);
+			}
 			return res.json(result);
 		}
 	} catch (e) {

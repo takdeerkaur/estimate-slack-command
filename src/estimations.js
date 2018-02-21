@@ -1,5 +1,6 @@
 const Estimate = require('./estimate');
 const SlackHelper = require('./slackHelper');
+const JiraHelper = require('./jiraHelper');
 const StoryPoints = require('./storyPoints');
 const mongo = require('mongodb');
 const db = require('monk')(process.env.MONGODB_URI);
@@ -8,6 +9,7 @@ class Estimations {
 	constructor(token) {
 		this.token = token;
 		this.storyPoints = new StoryPoints();
+		this.jiraHelper = new JiraHelper();
 		this.slackHelper = new SlackHelper(this.token);
 		this.currentEstimations = [];
 	}
@@ -19,7 +21,7 @@ class Estimations {
 				user_id: user_id
 			});
 
-			return user; 
+			return user;
 		} catch (err) {
 			console.log("This mongo connection didn't work bruh", err);
 		}
@@ -37,23 +39,73 @@ class Estimations {
 		});
 	}
 
-	createBaseEstimate(ticket, channel) {
-		let baseEstimate = {
+	async handleEstimate(ticket, channel) {
+		let response = {
 			response_type: 'in_channel'
 		};
 		// 1. if estimate: post message with ticket number + ticket description from JIRA + emoji reactions of SP options
 		// this._getJiraTicket('ADVP-1000');
 		if (this.currentEstimation(channel)) {
-			baseEstimate.text = `There is already an estimation in progress in this channel. Please /estimate close before creating a new one.`;
+			response.text = `There is already an estimation in progress in this channel. Please /estimate close before creating a new one.`;
 		} else {
-			let newEstimate = new Estimate(ticket, channel);
-			this.currentEstimations.push(newEstimate);
-
-			baseEstimate.text = `Estimation in progress for: \`${ticket}\``;
+			response.delayed = true;
+			response.ticket = ticket;
+			response.text = "Fetching data from Jira",
+			response.channel_id = channel
 		};
 
-		return baseEstimate;
+		return response;
 	};
+
+	async createBaseEstimate(ticket, channel) {
+		let baseEstimate = {
+			response_type: 'in_channel'
+		};
+		const jira = await this.jiraHelper.getTicket(ticket);
+		const newEstimate = new Estimate(ticket, channel, jira);
+		this.currentEstimations.push(newEstimate);
+		let estimationActions = [];
+		let options = this.storyPoints.storyPoints.map(point => {
+			return {
+				text: point.value,
+				value: point.value
+			}
+		});
+		estimationActions.push({
+			name: "voting_options",
+			text: "Select a story point",
+			type: "select",
+			options: options
+		})
+		estimationActions.push({
+			"name": ticket,
+			"text": "Close",
+			"style": "danger",
+			"type": "button",
+			"value": "close",
+			"confirm": {
+				"title": "Are you sure?",
+				"text": "Is everyone done voting?",
+				"ok_text": "Yes",
+				"dismiss_text": "No"
+			}
+		});
+		if (jira) {
+			baseEstimate.text = `Estimation in progress for: \`${ticket} - ${jira.summary}\`\n${jira.description}...`;
+		} else {
+			baseEstimate.text = `Estimation in progress for: \`${ticket}\``;
+		}
+
+		baseEstimate.attachments = [{
+			"fallback": "You were unable to estimate",
+			"callback_id": "estimation_vote",
+			"color": "#3AA3E3",
+			"attachment_type": "default",
+			"actions": estimationActions
+		}]
+		
+		return await this.slackHelper.postMessage(channel, baseEstimate.text, null, false, null, null, baseEstimate.attachments);
+	}
 
 	formatFinalEstimates(estimates) {
 		let message = estimates.reduce(function (message, estimate) {
@@ -67,13 +119,17 @@ class Estimations {
 
 	async revealEstimates(channel) {
 		try {
-			let currentEstimate = this.currentEstimation(channel);
-			let estimates = currentEstimate.estimates.sort(function (a, b) {
+			const currentEstimate = this.currentEstimation(channel);
+			const estimates = currentEstimate.estimates.sort(function (a, b) {
 				return a.value - b.value;
 			});
-			let storyPoint = this.calculateStoryPoints(estimates);
-			let newMessage = await this.slackHelper.postMessage(channel, `Revealing estimates for \`${currentEstimate.ticket}\`!`, null, false, null, `:sparkles:`);
-			let allEstimates = this.formatFinalEstimates(estimates);
+			if (estimates.length < 1) {
+				this.currentEstimations.splice(this.currentEstimationIndex(channel), 1);
+				return await this.slackHelper.postMessage(channel, `Estimation closed for \`${currentEstimate.ticket}\``);
+			}
+			const storyPoint = this.calculateStoryPoints(estimates);
+			const newMessage = await this.slackHelper.postMessage(channel, `Revealing estimates for \`${currentEstimate.ticket}\`!`, null, false, null, `:sparkles:`);
+			const allEstimates = this.formatFinalEstimates(estimates);
 
 			await this.slackHelper.postMessage(channel, allEstimates, null, false, newMessage.ts, `:${storyPoint.emoji}:`);
 			for (let estimate of estimates) {
@@ -94,8 +150,11 @@ class Estimations {
 			// 		await this.slackHelper.postMessage(channel, `${value.username} has not authenticated, but voted :${value.emoji}:`, value.username, false, newMessage.ts, `:${value.emoji}:`);
 			// 	}
 			// }));
-			
+
 			await this.slackHelper.postMessage(channel, `The magically agreed upon story point for ticket \`${currentEstimate.ticket}\` is :${storyPoint.emoji}: :tada:`, null, false, null, `:${storyPoint.emoji}:`);
+			// if(currentEstimate.jira && !currentEstimate.jira.story_point) {
+			// 	await this.jiraHelper.updateTicket(currentEstimate.ticket, storyPoint.value);
+			// }
 			this.currentEstimations.splice(this.currentEstimationIndex(channel), 1);
 		} catch (e) {
 			console.log("Something went wrong when revealing estimates", e);
@@ -234,10 +293,10 @@ class Estimations {
 				return await this.addEstimate(validPoint, user_id, user_name, channel_id);
 			} else if (currentEstimate) {
 				if (message === 'close') {
-					return { 
-						delayed: true, 
+					return {
+						delayed: true,
 						channel_id: channel_id,
-						text: "Preparing to reveal final estimates... :robot_face:" 
+						text: "Preparing to reveal final estimates... :robot_face:"
 					};
 				} else {
 					let invalidEstimate = {};
@@ -246,7 +305,7 @@ class Estimations {
 					return invalidEstimate;
 				}
 			} else {
-				return this.createBaseEstimate(message, channel_id);
+				return this.handleEstimate(message, channel_id);
 			}
 		} catch (e) {
 			console.log("execution error", e);

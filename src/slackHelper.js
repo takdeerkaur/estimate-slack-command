@@ -50,7 +50,7 @@ class SlackHelper {
     });
   }
 
-  postMessage(channel_id, text, username, as_user = false, thread_ts = null, emoji) {
+  postMessage(channel_id, text, username, as_user = false, thread_ts = null, emoji, attachments = null) {
     return new Promise((resolve, reject) => {
       fetch('https://slack.com/api/chat.postMessage', {
           method: "POST",
@@ -61,7 +61,8 @@ class SlackHelper {
             as_user: as_user,
             username: username,
             thread_ts: thread_ts,
-            icon_emoji: emoji
+            icon_emoji: emoji,
+            attachments: JSON.stringify(attachments)
           }),
           headers: {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -69,6 +70,7 @@ class SlackHelper {
         })
         .then((resp) => resp.json())
         .then(function (data) {
+          console.log(data);
           resolve(data);
         })
         .catch(function (error) {
@@ -78,23 +80,12 @@ class SlackHelper {
     });
   }
 
-  async delayedReveal(response_url, channel_id) {
-    let reveal = await this.estimation.revealEstimates(channel_id);
-    fetch(response_url, {
-        method: "POST",
-        body: qs.stringify(reveal),
-        headers: {
-          "Content-Type": "application/json"
-        }
-      })
-      .then((resp) => resp.json())
-      .then(function (data) {
-        return data;
-      })
-      .catch(function (error) {
-        return error;
-        console.log("Error revealing", error);
-      });
+  async delayedPost(response_url, channel_id, ticket) {
+    if (!ticket) {
+      return await this.estimation.revealEstimates(channel_id);
+    } else {
+      return await this.estimation.createBaseEstimate(ticket, channel_id);
+    }
   }
 }
 

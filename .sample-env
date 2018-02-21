@@ -5,3 +5,4 @@ SLACK_TOKEN="12317dsadSDF132"
 PORT=8080
 BASE_URL="https://af181024.ngrok.io"
 MONGODB_URI="mongodb://heroku_xxxxxx:xxxxxxxxxxxxxxxxxxx@xxxxxx.mlab.com:xxxxx/heroku_xxxxxx"
+JIRA_AUTH="xxxxxxxxxxx"
