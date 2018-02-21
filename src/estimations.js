@@ -90,7 +90,7 @@ class Estimations {
 				"dismiss_text": "No"
 			}
 		});
-		if (jira) {
+		if (jira && jira.summary) {
 			baseEstimate.text = `Estimation in progress for: \`${ticket} - ${jira.summary}\`\n${jira.description}...`;
 		} else {
 			baseEstimate.text = `Estimation in progress for: \`${ticket}\``;
