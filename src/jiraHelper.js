@@ -17,12 +17,14 @@ class JiraHelper {
         })
         .then((resp) => resp.json())
         .then(function (data) {
-          if (data.fields) {
-            resolve({
+          if (data.fields && data.fields.summary) {
+            const jira_data = {
               summary: data.fields.summary,
               description: data.fields.description ? data.fields.description.trim().split(/\s+/).slice(0, 30).join(" ") : null,
               story_point: data.fields.customfield_10002
-            });
+            };
+            console.log("This is the jira data", jira_data);
+            resolve(jira_data);
           }
           resolve(null);
         }, function (error) {
