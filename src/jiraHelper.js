@@ -38,7 +38,7 @@ class JiraHelper {
   //     fetch(`https://jira.move.com/rest/api/2/issue/${ticket}`, {
   //           method: "PUT",
   //           headers: {
-  //               "Authorization": `Basic dGphd2FuZGE6QXFZWE5UWjVmMFF2`,
+  //               "Authorization": `Basic ${process.env.JIRA_AUTH}`,
   //             "Content-Type": "application/json"
   //           },
   //           data: {
