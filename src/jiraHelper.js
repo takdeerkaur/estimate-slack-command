@@ -20,7 +20,7 @@ class JiraHelper {
           if (data.fields && data.fields.summary) {
             const jira_data = {
               summary: data.fields.summary,
-              description: data.fields.description ? data.fields.description.trim().split(/\s+/).slice(0, 30).join(" ") : null,
+              description: data.fields.description ? data.fields.description.trim().split(/\s+/).slice(0, 30).join(" ") : "",
               story_point: data.fields.customfield_10002
             };
             console.log("This is the jira data", jira_data);
